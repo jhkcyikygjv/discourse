@@ -1,4 +1,5 @@
 {
   "application-template-wrapper": false,
-  "default-async-observers": true
+  "default-async-observers": true,
+  "template-only-glimmer-components": true
 }

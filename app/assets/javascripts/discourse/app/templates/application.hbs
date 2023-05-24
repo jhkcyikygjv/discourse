@@ -81,7 +81,8 @@
     @outletArgs={{hash showFooter=this.showFooter}}
   />
 
-  {{outlet "modal"}}
+  {{!-- {{outlet "modal"}} --}}
+  ((outlet "modal"))
   <DialogHolder />
   <TopicEntrance />
   <ComposerContainer />

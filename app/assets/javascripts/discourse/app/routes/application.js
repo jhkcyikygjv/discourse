@@ -167,7 +167,7 @@ const ApplicationRoute = DiscourseRoute.extend(OpenComposer, {
         }
       }
 
-      this.render("hide-modal", { into: "modal", outlet: "modalBody" });
+      // this.render("hide-modal", { into: "modal", outlet: "modalBody" });
 
       if (controllerName) {
         const controller = getOwner(this).lookup(
