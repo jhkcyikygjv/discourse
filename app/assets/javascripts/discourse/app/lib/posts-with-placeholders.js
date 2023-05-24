@@ -2,8 +2,8 @@ import EmberArray from "@ember/array";
 import EmberObject from "@ember/object";
 import discourseComputed from "discourse-common/utils/decorators";
 import {
-  arrayContentWillChange,
   arrayContentDidChange,
+  arrayContentWillChange,
 } from "@ember/-internals/metal";
 
 export function Placeholder(viewName) {
