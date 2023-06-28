@@ -184,18 +184,18 @@ RSpec.describe Chat::ChatController do
                      params: {
                        message: message,
                        in_reply_to_id: message_1.id,
-                       staged_thread_id: "stagedthreadid",
+                       staged_thread_id: "12",
                      }
               end
 
             expect(response.status).to eq(200)
 
             thread_event = messages.find { |m| m.data["type"] == "thread_created" }
-            expect(thread_event.data["staged_thread_id"]).to eq("stagedthreadid")
+            expect(thread_event.data["staged_thread_id"]).to eq(12)
             expect(Chat::Thread.find(thread_event.data["thread_id"])).to be_persisted
 
             sent_event = messages.find { |m| m.data["type"] == "sent" }
-            expect(sent_event.data["staged_thread_id"]).to eq("stagedthreadid")
+            expect(sent_event.data["staged_thread_id"]).to eq(12)
           end
         end
 

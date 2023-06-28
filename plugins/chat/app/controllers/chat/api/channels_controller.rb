@@ -8,6 +8,18 @@ CATEGORY_CHANNEL_EDITABLE_PARAMS ||= %i[
 ]
 
 class Chat::Api::ChannelsController < Chat::ApiController
+  # TODO: move this elsewhere
+  def create_message
+    Chat::MessageRateLimiter.run!(current_user)
+
+    with_service(Chat::CreateMessage) do
+      on_failed_policy(:no_silenced_user) { raise Discourse::InvalidAccess }
+      on_model_not_found(:channel_membership) { raise Discourse::InvalidAccess }
+      on_failed_policy(:ensure_reply_consistency) { raise Discourse::NotFound }
+      on_failed_step(:create_message) { |step| render_json_error(step.error) }
+    end
+  end
+
   def index
     permitted = params.permit(:filter, :limit, :offset, :status)
 
