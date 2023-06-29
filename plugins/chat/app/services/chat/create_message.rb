@@ -54,7 +54,7 @@ module Chat
 
     def allowed_to_create_direct_message(guardian:, channel:, **)
       return true if !channel.direct_message_channel?
-      guardian.can_create_channel_message?(channel) && guardian.can_create_direct_message?
+      guardian.can_create_channel_message?(channel) || guardian.can_create_direct_message?
     end
 
     def allowed_to_create_message_in_channel(guardian:, channel:, **)
@@ -132,6 +132,7 @@ module Chat
     def ensure_thread_matches_parent(thread:, contract:, original_message:, message:, **)
       return true if thread.blank? && contract.staged_thread_id.present?
       return true if thread.blank?
+      return true if !message.in_reply_to.try(:thread) && !original_message.try(:thread)
       message.in_reply_to.thread == thread && original_message.thread &&
         original_message.thread == thread
     end
@@ -154,7 +155,7 @@ module Chat
       message.in_reply_to.thread =
         original_message.thread ||
           Chat::Thread.create!(
-            original_message: message.reply_to,
+            original_message: message.in_reply_to,
             original_message_user: message.in_reply_to.user,
             channel: message.chat_channel,
           )
