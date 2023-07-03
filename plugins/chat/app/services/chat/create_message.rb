@@ -14,7 +14,7 @@ module Chat
     policy :ensure_reply_consistency
     step :fetch_uploads
     model :message, :instantiate_message
-    model :original_message
+    step :fetch_original_message
     step :fetch_thread
     policy :ensure_valid_thread_for_channel
     policy :ensure_thread_matches_parent
@@ -92,7 +92,9 @@ module Chat
     end
 
     def fetch_original_message(contract:, **)
-      return true if contract.in_reply_to_id.blank?
+      context[:original_message] = nil
+      return if contract.in_reply_to_id.blank?
+
       original_message_id = DB.query_single(<<~SQL).last
         WITH RECURSIVE original_message_finder( id, in_reply_to_id )
         AS (
@@ -116,7 +118,7 @@ module Chat
         WHERE in_reply_to_id IS NULL;
       SQL
 
-      Chat::Message.find_by(id: original_message_id)
+      context[:original_message] = Chat::Message.find_by(id: original_message_id)
     end
 
     def fetch_thread(contract:, **)
@@ -124,13 +126,11 @@ module Chat
     end
 
     def ensure_valid_thread_for_channel(thread:, contract:, channel:, **)
-      return true if thread.blank? && contract.staged_thread_id.present?
       return true if thread.blank?
       thread.channel == channel
     end
 
     def ensure_thread_matches_parent(thread:, contract:, original_message:, message:, **)
-      return true if thread.blank? && contract.staged_thread_id.present?
       return true if thread.blank?
       return true if !message.in_reply_to.try(:thread) && !original_message.try(:thread)
       message.in_reply_to.thread == thread && original_message.thread &&

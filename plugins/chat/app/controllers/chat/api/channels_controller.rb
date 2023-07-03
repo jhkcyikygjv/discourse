@@ -24,6 +24,12 @@ class Chat::Api::ChannelsController < Chat::ApiController
           I18n.t("chat.errors.channel_new_message_disallowed.#{result[:channel].status}"),
         )
       end
+      on_failed_policy(:ensure_valid_thread_for_channel) do
+        render_json_error(I18n.t("chat.errors.thread_invalid_for_channel"))
+      end
+      on_failed_policy(:ensure_thread_matches_parent) do
+        render_json_error(I18n.t("chat.errors.thread_does_not_match_parent"))
+      end
     end
   end
 
