@@ -27,7 +27,7 @@ module Chat
     step :publish_new_message
     step :update_membership_last_read
     step :direct_message_autofollow
-    step :publish
+    step :publish_user_tracking_state
 
     class Contract
       attribute :chat_channel_id, :string
@@ -40,6 +40,7 @@ module Chat
       attribute :incoming_chat_webhook
 
       validates :chat_channel_id, presence: true
+      validates :message, presence: true
     end
 
     private
@@ -248,7 +249,7 @@ module Chat
         .update_all(following: true)
     end
 
-    def publish(message:, channel:, channel_membership:, guardian:, **)
+    def publish_user_tracking_state(message:, channel:, channel_membership:, guardian:, **)
       Chat::Publisher.publish_user_tracking_state!(
         guardian.user,
         channel,

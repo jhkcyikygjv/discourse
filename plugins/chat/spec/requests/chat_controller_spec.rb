@@ -248,10 +248,7 @@ RSpec.describe Chat::ChatController do
           end
 
           context "when provided thread does not match `reply_to_id`" do
-            let(:another_message) { Fabricate(:chat_message, chat_channel: chat_channel) }
-            let!(:another_thread) do
-              Fabricate(:chat_thread, channel: chat_channel, original_message: another_message)
-            end
+            let!(:another_thread) { Fabricate(:chat_thread, channel: chat_channel) }
 
             it "returns an error" do
               post "/chat/#{chat_channel.id}.json",
