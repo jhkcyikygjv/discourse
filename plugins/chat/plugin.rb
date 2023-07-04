@@ -480,7 +480,12 @@ after_initialize do
 
   add_api_key_scope(
     :chat,
-    { create_message: { actions: %w[chat/chat#create_message], params: %i[chat_channel_id] } },
+    {
+      create_message: {
+        actions: %w[chat/api/channels#create_message],
+        params: %i[chat_channel_id],
+      },
+    },
   )
 
   # Dark mode email styles
