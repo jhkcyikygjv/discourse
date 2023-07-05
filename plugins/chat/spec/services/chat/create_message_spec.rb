@@ -58,7 +58,12 @@ RSpec.describe Chat::CreateMessage do
             context "when user is a member of the channel" do
               fab!(:existing_message) { Fabricate(:chat_message, chat_channel: channel) }
 
-              before { channel.add(user).update!(last_read_message: existing_message) }
+              let(:membership) { Chat::UserChatChannelMembership.last }
+
+              before do
+                channel.add(user).update!(last_read_message: existing_message)
+                DiscourseEvent.stubs(:trigger)
+              end
 
               context "when message is a reply" do
                 before { params[:in_reply_to_id] = reply_to.id }
@@ -127,12 +132,12 @@ RSpec.describe Chat::CreateMessage do
                   params[:in_reply_to_id] = reply_to.id
                 end
 
-                context "when message is not associated to a thread" do
+                context "when message is not associated with a thread" do
                   fab!(:thread) do
                     Fabricate(:chat_thread, channel: channel, original_message: reply_to)
                   end
 
-                  context "when original message is associated to a thread" do
+                  context "when original message is associated with a thread" do
                     it "assigns the original message thread" do
                       expect(message).to have_attributes(
                         in_reply_to: an_object_having_attributes(thread: thread),
@@ -181,7 +186,37 @@ RSpec.describe Chat::CreateMessage do
                 expect { result }.to change { Chat::Draft.count }.by(-1)
               end
 
-              it "post-processes the thread"
+              context "when message is threaded" do
+                let(:thread) { Fabricate(:chat_thread, channel: channel) }
+                let(:thread_membership) { Chat::UserChatThreadMembership.find_by(user: user) }
+                let(:original_user) { thread.original_message_user }
+
+                before do
+                  params[:thread_id] = thread.id
+                  Chat::UserChatThreadMembership.where(user: original_user).delete_all
+                end
+
+                it "increments the replies count" do
+                  expect { result }.to change { thread.reload.replies_count_cache }.by(1)
+                end
+
+                it "adds current user to the thread" do
+                  expect { result }.to change {
+                    Chat::UserChatThreadMembership.where(thread: thread, user: user).count
+                  }.by(1)
+                end
+
+                it "sets last_read_message on the thread membership" do
+                  result
+                  expect(thread_membership.last_read_message).to eq message
+                end
+
+                it "adds original message user to the thread" do
+                  expect { result }.to change {
+                    Chat::UserChatThreadMembership.where(thread: thread, user: original_user).count
+                  }.by(1)
+                end
+              end
 
               it "publishes the new message" do
                 Chat::Publisher.expects(:publish_new!).with(
@@ -193,15 +228,33 @@ RSpec.describe Chat::CreateMessage do
                 result
               end
 
-              it "enqueues a job to process message"
-              it "notifies the new message"
+              it "enqueues a job to process message" do
+                result
+                expect_job_enqueued(
+                  job: Jobs::Chat::ProcessMessage,
+                  args: {
+                    chat_message_id: message.id,
+                  },
+                )
+              end
+
+              it "notifies the new message" do
+                result
+                expect_job_enqueued(
+                  job: Jobs::Chat::SendMessageNotifications,
+                  args: {
+                    chat_message_id: message.id,
+                    timestamp: message.created_at.iso8601(6),
+                    reason: "new",
+                  },
+                )
+              end
 
               it "updates the channel 'last_message_sent_at' attribute" do
                 expect { result }.to change { channel.reload.last_message_sent_at }
               end
 
               it "triggers a Discourse event" do
-                DiscourseEvent.stubs(:trigger)
                 DiscourseEvent.expects(:trigger).with(
                   :chat_message_created,
                   instance_of(Chat::Message),
@@ -211,9 +264,49 @@ RSpec.describe Chat::CreateMessage do
                 result
               end
 
-              it "updates membership last_read attribute"
-              it "sets autofollow for DM"
-              it "publishes user tracking state"
+              context "when message is not threaded" do
+                it "updates membership last_read_message attribute" do
+                  expect { result }.to change { membership.reload.last_read_message }
+                end
+              end
+
+              it "processes the direct message channel" do
+                Chat::Action::PublishAndFollowDirectMessageChannel.expects(:call).with(
+                  channel: channel,
+                  guardian: guardian,
+                )
+                result
+              end
+
+              context "when message is threaded" do
+                let(:thread) { Fabricate(:chat_thread, channel: channel) }
+
+                before { params[:thread_id] = thread.id }
+
+                it "publishes user tracking state" do
+                  Chat::Publisher.expects(:publish_user_tracking_state!).with(
+                    user,
+                    channel,
+                    existing_message,
+                  )
+                  result
+                end
+              end
+
+              context "when message is not threaded" do
+                it "publishes user tracking state" do
+                  Chat::Publisher
+                    .expects(:publish_user_tracking_state!)
+                    .with(user, channel, existing_message)
+                    .never
+                  Chat::Publisher.expects(:publish_user_tracking_state!).with(
+                    user,
+                    channel,
+                    instance_of(Chat::Message),
+                  )
+                  result
+                end
+              end
             end
           end
         end

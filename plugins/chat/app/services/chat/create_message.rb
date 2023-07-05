@@ -26,7 +26,7 @@ module Chat
     step :post_process_thread
     step :publish_new_message
     step :update_membership_last_read
-    step :direct_message_autofollow
+    step :process_direct_message_channel
     step :publish_user_tracking_state
 
     class Contract
@@ -228,25 +228,8 @@ module Chat
       channel_membership.update!(last_read_message: message)
     end
 
-    def direct_message_autofollow(channel:, guardian:, **)
-      return unless channel.direct_message_channel?
-
-      # If any of the channel users is ignoring, muting, or preventing DMs from
-      # the current user then we should not auto-follow the channel once again or
-      # publish the new channel.
-      user_ids_allowing_communication =
-        UserCommScreener.new(
-          acting_user: guardian.user,
-          target_user_ids:
-            channel.user_chat_channel_memberships.where(following: false).pluck(:user_id),
-        ).allowing_actor_communication
-
-      return if user_ids_allowing_communication.none?
-      Chat::Publisher.publish_new_channel(channel, User.where(id: user_ids_allowing_communication))
-      channel
-        .user_chat_channel_memberships
-        .where(user_id: user_ids_allowing_communication)
-        .update_all(following: true)
+    def process_direct_message_channel(channel:, guardian:, **)
+      Chat::Action::PublishAndFollowDirectMessageChannel.call(channel: channel, guardian: guardian)
     end
 
     def publish_user_tracking_state(message:, channel:, channel_membership:, guardian:, **)
