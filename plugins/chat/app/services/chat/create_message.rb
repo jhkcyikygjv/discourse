@@ -46,11 +46,14 @@ module Chat
     private
 
     def no_silenced_user(guardian:, **)
-      !guardian.user.silenced?
+      !guardian.is_silenced?
     end
 
     def fetch_channel(contract:, guardian:, **)
+      # TODO: don't use this helper
       Chat::ChannelFetcher.find_with_access_check(contract.chat_channel_id, guardian)
+    rescue Discourse::NotFound, Discourse::InvalidAccess
+      #noop
     end
 
     def allowed_to_create_direct_message(guardian:, channel:, **)
@@ -159,6 +162,7 @@ module Chat
             original_message_user: message.in_reply_to.user,
             channel: message.chat_channel,
           )
+      message.in_reply_to.save
 
       if message.chat_channel.threading_enabled?
         Chat::Publisher.publish_thread_created!(
@@ -169,6 +173,7 @@ module Chat
         )
       end
       message.thread = message.in_reply_to.thread
+      message.save
 
       # NOTE: We intentionally do not try to correct thread IDs within the chain
       # if they are incorrect, and only set the thread ID of messages where the

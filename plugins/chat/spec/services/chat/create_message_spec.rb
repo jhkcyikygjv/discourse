@@ -132,12 +132,12 @@ RSpec.describe Chat::CreateMessage do
                   params[:in_reply_to_id] = reply_to.id
                 end
 
-                context "when message is not associated with a thread" do
+                context "when message is not threaded" do
                   fab!(:thread) do
                     Fabricate(:chat_thread, channel: channel, original_message: reply_to)
                   end
 
-                  context "when original message is associated with a thread" do
+                  context "when original message is threaded" do
                     it "assigns the original message thread" do
                       expect(message).to have_attributes(
                         in_reply_to: an_object_having_attributes(thread: thread),
@@ -146,7 +146,7 @@ RSpec.describe Chat::CreateMessage do
                     end
                   end
 
-                  context "when original message is not associated to a thread" do
+                  context "when original message is not threaded" do
                     let(:new_thread) { Chat::Thread.last }
 
                     before { thread.destroy! }
