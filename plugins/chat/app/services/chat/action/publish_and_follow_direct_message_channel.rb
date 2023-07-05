@@ -5,11 +5,11 @@ module Chat
     class PublishAndFollowDirectMessageChannel
       attr_reader :channel, :guardian
 
-      def self.call(channel:, guardian:)
-        new(channel, guardian).call
+      def self.call(...)
+        new(...).call
       end
 
-      def initialize(channel, guardian)
+      def initialize(channel:, guardian:)
         @channel = channel
         @guardian = guardian
       end
@@ -32,9 +32,6 @@ module Chat
       end
 
       def user_ids
-        # If any of the channel users is ignoring, muting, or preventing DMs from
-        # the current user then we should not auto-follow the channel once again or
-        # publish the new channel.
         UserCommScreener.new(
           acting_user: guardian.user,
           target_user_ids:
