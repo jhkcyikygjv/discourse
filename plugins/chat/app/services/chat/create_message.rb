@@ -12,10 +12,10 @@ module Chat
     model :chatable
     model :channel_membership
     policy :ensure_reply_consistency
-    step :fetch_uploads
+    model :uploads, optional: true
     model :message, :instantiate_message
-    step :fetch_original_message
-    step :fetch_thread
+    model :original_message, optional: true
+    model :thread, optional: true
     policy :ensure_valid_thread_for_channel
     policy :ensure_thread_matches_parent
     step :save_message
@@ -75,8 +75,8 @@ module Chat
     end
 
     def fetch_uploads(contract:, guardian:, **)
-      return context[:uploads] = [] if !SiteSetting.chat_allow_uploads
-      context[:uploads] = guardian.user.uploads.where(id: contract.upload_ids)
+      return [] if !SiteSetting.chat_allow_uploads
+      guardian.user.uploads.where(id: contract.upload_ids)
     end
 
     def instantiate_message(channel:, guardian:, contract:, uploads:, **)
@@ -92,7 +92,6 @@ module Chat
     end
 
     def fetch_original_message(contract:, **)
-      context[:original_message] = nil
       return if contract.in_reply_to_id.blank?
 
       original_message_id = DB.query_single(<<~SQL).last
@@ -118,11 +117,11 @@ module Chat
         WHERE in_reply_to_id IS NULL;
       SQL
 
-      context[:original_message] = Chat::Message.find_by(id: original_message_id)
+      Chat::Message.find_by(id: original_message_id)
     end
 
     def fetch_thread(contract:, **)
-      context[:thread] = Chat::Thread.find_by(id: contract.thread_id)
+      Chat::Thread.find_by(id: contract.thread_id)
     end
 
     def ensure_valid_thread_for_channel(thread:, contract:, channel:, **)
