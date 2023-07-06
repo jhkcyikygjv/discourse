@@ -31,7 +31,8 @@ class Chat::Channel::MessageCreationPolicy < PolicyBase
 
   def initialize(*)
     super
-    @strategy = channel.direct_message_channel? ? DirectMessageStrategy : CategoryStrategy
+    @strategy = CategoryStrategy
+    @strategy = DirectMessageStrategy if channel.direct_message_channel?
   end
 
   def call
