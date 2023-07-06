@@ -17,13 +17,8 @@ class Chat::Api::ChannelsController < Chat::ApiController
       on_model_not_found(:channel) { raise Discourse::NotFound }
       on_model_not_found(:channel_membership) { raise Discourse::InvalidAccess }
       on_failed_policy(:ensure_reply_consistency) { raise Discourse::NotFound }
-      on_failed_policy(:allowed_to_create_direct_message) do
-        render_json_error(I18n.t("chat.errors.user_cannot_send_direct_messages"))
-      end
-      on_failed_policy(:allowed_to_create_message_in_channel) do
-        render_json_error(
-          I18n.t("chat.errors.channel_new_message_disallowed.#{result[:channel].status}"),
-        )
+      on_failed_policy(:allowed_to_create_message_in_channel) do |policy|
+        render_json_error(policy.reason)
       end
       on_failed_policy(:ensure_valid_thread_for_channel) do
         render_json_error(I18n.t("chat.errors.thread_invalid_for_channel"))

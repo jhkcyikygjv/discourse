@@ -7,9 +7,7 @@ module Chat
     policy :no_silenced_user
     contract
     model :channel
-    policy :allowed_to_create_direct_message
-    policy :allowed_to_create_message_in_channel
-    model :chatable
+    policy :allowed_to_create_message_in_channel, class_name: Chat::Channel::MessageCreationPolicy
     model :channel_membership
     policy :ensure_reply_consistency
     model :uploads, optional: true
@@ -54,19 +52,6 @@ module Chat
       Chat::ChannelFetcher.find_with_access_check(contract.chat_channel_id, guardian)
     rescue Discourse::NotFound, Discourse::InvalidAccess
       #noop
-    end
-
-    def allowed_to_create_direct_message(guardian:, channel:, **)
-      return true if !channel.direct_message_channel?
-      guardian.can_create_channel_message?(channel) || guardian.can_create_direct_message?
-    end
-
-    def allowed_to_create_message_in_channel(guardian:, channel:, **)
-      guardian.can_create_channel_message?(channel)
-    end
-
-    def fetch_chatable(channel:, **)
-      channel.chatable
     end
 
     def fetch_channel_membership(guardian:, channel:, **)
