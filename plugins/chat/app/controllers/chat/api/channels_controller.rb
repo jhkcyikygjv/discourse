@@ -15,6 +15,7 @@ class Chat::Api::ChannelsController < Chat::ApiController
     with_service(Chat::CreateMessage) do
       on_failed_policy(:no_silenced_user) { raise Discourse::InvalidAccess }
       on_model_not_found(:channel) { raise Discourse::NotFound }
+      on_failed_policy(:allowed_to_join_channel) { raise Discourse::InvalidAccess }
       on_model_not_found(:channel_membership) { raise Discourse::InvalidAccess }
       on_failed_policy(:ensure_reply_consistency) { raise Discourse::NotFound }
       on_failed_policy(:allowed_to_create_message_in_channel) do |policy|

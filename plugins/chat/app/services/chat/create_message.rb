@@ -7,6 +7,7 @@ module Chat
     policy :no_silenced_user
     contract
     model :channel
+    policy :allowed_to_join_channel
     policy :allowed_to_create_message_in_channel, class_name: Chat::Channel::MessageCreationPolicy
     model :channel_membership
     policy :ensure_reply_consistency
@@ -47,11 +48,18 @@ module Chat
       !guardian.is_silenced?
     end
 
-    def fetch_channel(contract:, guardian:, **)
-      # TODO: don't use this helper
-      Chat::ChannelFetcher.find_with_access_check(contract.chat_channel_id, guardian)
-    rescue Discourse::NotFound, Discourse::InvalidAccess
-      #noop
+    def fetch_channel(contract:, **)
+      Chat::Channel.joins(
+        "LEFT JOIN categories ON categories.id = chat_channels.chatable_id AND chat_channels.chatable_type = 'Category'",
+      ).find_by(
+        "chat_channels.id = :id OR categories.slug = :slug OR chat_channels.slug = :slug",
+        id: Integer(contract.chat_channel_id, exception: false),
+        slug: contract.chat_channel_id.downcase,
+      )
+    end
+
+    def allowed_to_join_channel(guardian:, channel:, **)
+      guardian.can_join_chat_channel?(channel)
     end
 
     def fetch_channel_membership(guardian:, channel:, **)
