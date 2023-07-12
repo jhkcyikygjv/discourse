@@ -123,8 +123,6 @@ module Jobs
     end
 
     def user_list_export
-      return enum_for(:user_list_export) unless block_given?
-
       user_field_ids = UserField.pluck(:id)
 
       condition = {}
@@ -151,8 +149,6 @@ module Jobs
     end
 
     def staff_action_export
-      return enum_for(:staff_action_export) unless block_given?
-
       staff_action_data =
         if @current_user.admin?
           UserHistory.only_staff_actions
@@ -166,24 +162,18 @@ module Jobs
     end
 
     def screened_email_export
-      return enum_for(:screened_email_export) unless block_given?
-
       ScreenedEmail
         .order("last_match_at DESC")
         .find_each { |screened_email| yield get_screened_email_fields(screened_email) }
     end
 
     def screened_ip_export
-      return enum_for(:screened_ip_export) unless block_given?
-
       ScreenedIpAddress
         .order("id DESC")
         .each { |screened_ip| yield get_screened_ip_fields(screened_ip) }
     end
 
     def screened_url_export
-      return enum_for(:screened_url_export) unless block_given?
-
       ScreenedUrl
         .select(
           "domain, sum(match_count) as match_count, max(last_match_at) as last_match_at, min(created_at) as created_at",
@@ -194,8 +184,6 @@ module Jobs
     end
 
     def report_export
-      return enum_for(:report_export) unless block_given?
-
       # If dates are invalid consider then `nil`
       if @extra[:start_date].is_a?(String)
         @extra[:start_date] = begin
