@@ -156,15 +156,6 @@ module Chat
             channel: message.chat_channel,
           )
       message.in_reply_to.save
-
-      if message.chat_channel.threading_enabled?
-        Chat::Publisher.publish_thread_created!(
-          message.chat_channel,
-          message.in_reply_to,
-          message.in_reply_to.thread.id,
-          contract.staged_thread_id,
-        )
-      end
       message.thread = message.in_reply_to.thread
       message.save
 
@@ -189,6 +180,15 @@ module Chat
         FROM thread_updater
         WHERE thread_id IS NULL AND chat_messages.id = thread_updater.id
       SQL
+
+      if message.chat_channel.threading_enabled?
+        Chat::Publisher.publish_thread_created!(
+          message.chat_channel,
+          message.in_reply_to,
+          message.in_reply_to.thread.id,
+          contract.staged_thread_id,
+        )
+      end
     end
 
     def attach_uploads(message:, uploads:, **)
