@@ -23,6 +23,7 @@ module Chat
     step :attach_uploads
     step :delete_drafts
     step :post_process_thread
+    step :update_channel_last_message
     step :publish_new_message
     step :update_membership_last_read
     step :process_direct_message_channel
@@ -203,9 +204,15 @@ module Chat
       thread ||= message.thread
       return if thread.blank?
 
+      thread.update!(last_message: message)
       thread.increment_replies_count_cache
       thread.add(guardian.user).update!(last_read_message: message)
       thread.add(thread.original_message_user) if thread.original_message_user != guardian.user
+    end
+
+    def update_channel_last_message(channel:, message:, **)
+      return if message.thread_reply?
+      channel.update!(last_message: message)
     end
 
     def publish_new_message(channel:, message:, contract:, guardian:, **)
@@ -217,7 +224,6 @@ module Chat
       )
       Jobs.enqueue(Jobs::Chat::ProcessMessage, { chat_message_id: message.id })
       Chat::Notifier.notify_new(chat_message: message, timestamp: message.created_at)
-      channel.touch(:last_message_sent_at)
       DiscourseEvent.trigger(:chat_message_created, message, channel, guardian.user)
     end
 

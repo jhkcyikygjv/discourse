@@ -262,10 +262,6 @@ RSpec.describe Chat::CreateMessage do
                   )
                 end
 
-                it "updates the channel 'last_message_sent_at' attribute" do
-                  expect { result }.to change { channel.reload.last_message_sent_at }
-                end
-
                 it "triggers a Discourse event" do
                   DiscourseEvent.expects(:trigger).with(
                     :chat_message_created,
@@ -279,6 +275,11 @@ RSpec.describe Chat::CreateMessage do
                 context "when message is not threaded" do
                   it "updates membership last_read_message attribute" do
                     expect { result }.to change { membership.reload.last_read_message }
+                  end
+
+                  it "updates channel last_message attribute" do
+                    result
+                    expect(channel.reload.last_message).to eq message
                   end
                 end
 
@@ -302,6 +303,15 @@ RSpec.describe Chat::CreateMessage do
                       existing_message,
                     )
                     result
+                  end
+
+                  it "doesn't update channel last_message attribute" do
+                    expect { result }.not_to change { channel.reload.last_message }
+                  end
+
+                  it "updates thread last_message attribute" do
+                    result
+                    expect(thread.reload.last_message).to eq message
                   end
                 end
 
