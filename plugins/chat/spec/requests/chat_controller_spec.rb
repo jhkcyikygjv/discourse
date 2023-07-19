@@ -174,6 +174,8 @@ RSpec.describe Chat::ChatController do
         end
 
         context "when sending a message in a staged thread" do
+          let(:staged_thread_id) { SecureRandom.uuid }
+
           it "creates the thread and publishes with the staged id" do
             sign_in(user)
             chat_channel.update!(threading_enabled: true)
@@ -184,18 +186,18 @@ RSpec.describe Chat::ChatController do
                      params: {
                        message: message,
                        in_reply_to_id: message_1.id,
-                       staged_thread_id: "12",
+                       staged_thread_id: staged_thread_id,
                      }
               end
 
             expect(response.status).to eq(200)
 
             thread_event = messages.find { |m| m.data["type"] == "thread_created" }
-            expect(thread_event.data["staged_thread_id"]).to eq(12)
+            expect(thread_event.data["staged_thread_id"]).to eq(staged_thread_id)
             expect(Chat::Thread.find(thread_event.data["thread_id"])).to be_persisted
 
             sent_event = messages.find { |m| m.data["type"] == "sent" }
-            expect(sent_event.data["staged_thread_id"]).to eq(12)
+            expect(sent_event.data["staged_thread_id"]).to eq(staged_thread_id)
           end
         end
 

@@ -30,16 +30,16 @@ module Chat
 
     class Contract
       attribute :chat_channel_id, :string
-      attribute :in_reply_to_id, :integer
+      attribute :in_reply_to_id, :string
       attribute :message, :string
-      attribute :staged_id, :integer
+      attribute :staged_id, :string
       attribute :upload_ids, :array
-      attribute :thread_id, :integer
-      attribute :staged_thread_id, :integer
+      attribute :thread_id, :string
+      attribute :staged_thread_id, :string
       attribute :incoming_chat_webhook
 
       validates :chat_channel_id, presence: true
-      validates :message, presence: true
+      validates :message, presence: true, if: -> { upload_ids.blank? }
     end
 
     private
