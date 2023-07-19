@@ -63,7 +63,7 @@ module Chat
     end
 
     def fetch_channel_membership(guardian:, channel:, **)
-      Chat::ChannelMembershipManager.new(channel).find_for_user(guardian.user, following: true)
+      Chat::ChannelMembershipManager.new(channel).find_for_user(guardian.user)
     end
 
     def ensure_reply_consistency(channel:, contract:, **)
@@ -225,8 +225,10 @@ module Chat
       channel_membership.update!(last_read_message: message)
     end
 
-    def process_direct_message_channel(channel:, guardian:, **)
-      Chat::Action::PublishAndFollowDirectMessageChannel.call(channel: channel, guardian: guardian)
+    def process_direct_message_channel(channel_membership:, **)
+      Chat::Action::PublishAndFollowDirectMessageChannel.call(
+        channel_membership: channel_membership,
+      )
     end
 
     def publish_user_tracking_state(message:, channel:, channel_membership:, guardian:, **)

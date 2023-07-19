@@ -2,11 +2,11 @@
 
 RSpec.describe Chat::Action::PublishAndFollowDirectMessageChannel do
   describe ".call" do
-    subject(:action) { described_class.call(channel: channel, guardian: guardian) }
+    subject(:action) { described_class.call(channel_membership: membership) }
 
     fab!(:user) { Fabricate(:user) }
 
-    let(:guardian) { Guardian.new(user) }
+    let(:membership) { user.user_chat_channel_memberships.last }
 
     before { channel.add(user) }
 
@@ -42,19 +42,19 @@ RSpec.describe Chat::Action::PublishAndFollowDirectMessageChannel do
       end
 
       context "when at least one user allows communication" do
-        let(:users) { channel.user_chat_channel_memberships.where.not(user: user).map(&:user) }
+        let(:users) { channel.user_chat_channel_memberships.map(&:user) }
 
         before { channel.user_chat_channel_memberships.update_all(following: false) }
 
         it "publishes the channel" do
-          Chat::Publisher.expects(:publish_new_channel).with(channel, users)
+          Chat::Publisher.expects(:publish_new_channel).with(channel, includes(*users))
           action
         end
 
         it "sets autofollow for these users" do
           expect { action }.to change {
             channel.user_chat_channel_memberships.where(following: true).count
-          }.by(2)
+          }.by(3)
         end
       end
     end

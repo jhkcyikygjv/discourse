@@ -304,8 +304,7 @@ RSpec.describe Chat::CreateMessage do
 
                 it "processes the direct message channel" do
                   Chat::Action::PublishAndFollowDirectMessageChannel.expects(:call).with(
-                    channel: channel,
-                    guardian: guardian,
+                    channel_membership: membership,
                   )
                   result
                 end
