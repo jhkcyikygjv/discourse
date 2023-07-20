@@ -13,6 +13,7 @@ class Chat::Api::ChannelsController < Chat::ApiController
     Chat::MessageRateLimiter.run!(current_user)
 
     with_service(Chat::CreateMessage) do
+      on_success { render json: success_json.merge(message_id: result[:message].id) }
       on_failed_policy(:no_silenced_user) { raise Discourse::InvalidAccess }
       on_model_not_found(:channel) { raise Discourse::NotFound }
       on_failed_policy(:allowed_to_join_channel) { raise Discourse::InvalidAccess }
@@ -26,6 +27,9 @@ class Chat::Api::ChannelsController < Chat::ApiController
       end
       on_failed_policy(:ensure_thread_matches_parent) do
         render_json_error(I18n.t("chat.errors.thread_does_not_match_parent"))
+      end
+      on_model_errors(:message) do |model|
+        render_json_error(model.errors.map(&:full_message).join(", "))
       end
     end
   end

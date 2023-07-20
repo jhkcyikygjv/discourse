@@ -82,6 +82,12 @@ RSpec.describe Chat::CreateMessage do
                   end
                 end
 
+                context "when message is not valid" do
+                  let(:content) { "a" * (SiteSetting.chat_maximum_message_length + 1) }
+
+                  it { is_expected.to fail_with_an_invalid_model(:message) }
+                end
+
                 context "when a thread is provided" do
                   before { params[:thread_id] = thread.id }
 

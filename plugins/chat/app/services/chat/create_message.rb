@@ -20,7 +20,6 @@ module Chat
     step :save_message
     step :create_webhook_event
     step :create_thread
-    step :attach_uploads
     step :delete_drafts
     step :post_process_thread
     step :update_channel_last_message
@@ -78,15 +77,13 @@ module Chat
     end
 
     def instantiate_message(channel:, guardian:, contract:, uploads:, **)
-      channel
-        .chat_messages
-        .new(
-          user: guardian.user,
-          last_editor: guardian.user,
-          in_reply_to_id: contract.in_reply_to_id,
-          message: contract.message,
-        )
-        .tap { _1.validate_message(has_uploads: uploads.present?) }
+      channel.chat_messages.new(
+        user: guardian.user,
+        last_editor: guardian.user,
+        in_reply_to_id: contract.in_reply_to_id,
+        message: contract.message,
+        uploads: uploads,
+      )
     end
 
     def fetch_original_message(contract:, **)
@@ -190,10 +187,6 @@ module Chat
           contract.staged_thread_id,
         )
       end
-    end
-
-    def attach_uploads(message:, uploads:, **)
-      message.attach_uploads(uploads)
     end
 
     def delete_drafts(channel:, guardian:, **)
