@@ -371,9 +371,7 @@ export default class ChatComposer extends Component {
   @action
   captureMentions() {
     if (this.hasContent) {
-      this.chatComposerWarningsTracker.trackMentions(
-        this.currentMessage.message
-      );
+      this.chatComposerWarningsTracker.trackMentions(this.currentMessage);
     }
   }
 

@@ -47,7 +47,12 @@ export default class ChatComposerWarningsTracker extends Service {
       return;
     }
 
-    const mentions = this._extractMentions(message);
+    const mentions = this._extractMentions(message.message);
+    console.log("extracted mentions are", mentions);
+    console.log(
+      "mentions extracted from cooked",
+      this._extractMentionsFromCooked(message.cooked)
+    );
     this.mentionsCount = mentions?.length;
 
     if (this.mentionsCount > 0) {
@@ -94,6 +99,20 @@ export default class ChatComposerWarningsTracker extends Service {
     }
 
     return mentions;
+  }
+
+  _extractMentionsFromCooked(cooked) {
+    return this._parseMentionedUsernames(cooked);
+  }
+
+  _parseMentionedUsernames(cooked) {
+    const html = new DOMParser().parseFromString(cooked, "text/html");
+    const mentions = html.querySelectorAll("a.mention[href^='/u/']");
+    return Array.from(mentions, this._extractUsername);
+  }
+
+  _extractUsername(mentionNode) {
+    return mentionNode.innerText.substring(1);
   }
 
   _recordNewWarnings(newMentions, mentions) {
