@@ -49,13 +49,7 @@ module Chat
     end
 
     def fetch_channel(contract:, **)
-      Chat::Channel.joins(
-        "LEFT JOIN categories ON categories.id = chat_channels.chatable_id AND chat_channels.chatable_type = 'Category'",
-      ).find_by(
-        "chat_channels.id = :id OR categories.slug = :slug OR chat_channels.slug = :slug",
-        id: Integer(contract.chat_channel_id, exception: false),
-        slug: contract.chat_channel_id.downcase,
-      )
+      Chat::Channel.find_by_id_or_slug(contract.chat_channel_id)
     end
 
     def allowed_to_join_channel(guardian:, channel:, **)
