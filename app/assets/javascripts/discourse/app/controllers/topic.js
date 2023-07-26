@@ -11,6 +11,7 @@ import { isEmpty, isPresent } from "@ember/utils";
 import { next, schedule } from "@ember/runloop";
 import discourseLater from "discourse-common/lib/later";
 import BookmarkModal from "discourse/components/modal/bookmark";
+import ChangePostNoticeModal from "discourse/components/modal/change-post-notice";
 import {
   CLOSE_INITIATED_BY_BUTTON,
   CLOSE_INITIATED_BY_ESC,
@@ -1002,12 +1003,14 @@ export default Controller.extend(bufferedProperty("model"), {
     },
 
     changeNotice(post) {
+      const modal = this.modal;
       return new Promise(function (resolve, reject) {
-        const modal = showModal("change-post-notice", { model: post });
-        modal.setProperties({
-          resolve,
-          reject,
-          notice: post.notice ? post.notice.raw : "",
+        modal.show(ChangePostNoticeModal, {
+          model: {
+            post,
+            resolve,
+            reject,
+          },
         });
       });
     },
