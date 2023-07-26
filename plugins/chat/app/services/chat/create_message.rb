@@ -10,13 +10,14 @@ module Chat
     policy :allowed_to_join_channel
     policy :allowed_to_create_message_in_channel, class_name: Chat::Channel::MessageCreationPolicy
     model :channel_membership
+    model :reply, optional: true
     policy :ensure_reply_consistency
-    model :uploads, optional: true
-    model :message, :instantiate_message
     model :original_message, optional: true
     model :thread, optional: true
     policy :ensure_valid_thread_for_channel
     policy :ensure_thread_matches_parent
+    model :uploads, optional: true
+    model :message, :instantiate_message
     step :save_message
     step :create_webhook_event
     step :create_thread
@@ -60,53 +61,18 @@ module Chat
       Chat::ChannelMembershipManager.new(channel).find_for_user(guardian.user)
     end
 
-    def ensure_reply_consistency(channel:, contract:, **)
+    def fetch_reply(contract:, **)
+      Chat::Message.find_by(id: contract.in_reply_to_id)
+    end
+
+    def ensure_reply_consistency(channel:, contract:, reply:, **)
       return true if contract.in_reply_to_id.blank?
-      Chat::Message.find(contract.in_reply_to_id).chat_channel == channel
+      reply.chat_channel == channel
     end
 
-    def fetch_uploads(contract:, guardian:, **)
-      return [] if !SiteSetting.chat_allow_uploads
-      guardian.user.uploads.where(id: contract.upload_ids)
-    end
-
-    def instantiate_message(channel:, guardian:, contract:, uploads:, **)
-      channel.chat_messages.new(
-        user: guardian.user,
-        last_editor: guardian.user,
-        in_reply_to_id: contract.in_reply_to_id,
-        message: contract.message,
-        uploads: uploads,
-      )
-    end
-
-    def fetch_original_message(contract:, **)
-      return if contract.in_reply_to_id.blank?
-
-      original_message_id = DB.query_single(<<~SQL).last
-        WITH RECURSIVE original_message_finder( id, in_reply_to_id )
-        AS (
-          -- start with the message id we want to find the parents of
-          SELECT id, in_reply_to_id
-          FROM chat_messages
-          WHERE id = #{contract.in_reply_to_id}
-
-          UNION ALL
-
-          -- get the chain of direct parents of the message
-          -- following in_reply_to_id
-          SELECT cm.id, cm.in_reply_to_id
-          FROM original_message_finder rm
-          JOIN chat_messages cm ON rm.in_reply_to_id = cm.id
-        )
-        SELECT id FROM original_message_finder
-
-        -- this makes it so only the root parent ID is returned, we can
-        -- exclude this to return all parents in the chain
-        WHERE in_reply_to_id IS NULL;
-      SQL
-
-      Chat::Message.find_by(id: original_message_id)
+    def fetch_original_message(reply:, **)
+      return if reply.blank?
+      reply.thread&.original_message || reply
     end
 
     def fetch_thread(contract:, **)
@@ -118,15 +84,29 @@ module Chat
       thread.channel == channel
     end
 
-    def ensure_thread_matches_parent(thread:, contract:, original_message:, message:, **)
+    def ensure_thread_matches_parent(thread:, contract:, original_message:, reply:, **)
       return true if thread.blank?
-      return true if !message.in_reply_to.try(:thread) && !original_message.try(:thread)
-      message.in_reply_to.thread == thread && original_message.thread &&
-        original_message.thread == thread
+      return true if !reply.try(:thread) && !original_message.try(:thread)
+      reply.thread == thread && original_message.thread && original_message.thread == thread
     end
 
-    def save_message(message:, thread:, **)
-      message.thread = thread
+    def fetch_uploads(contract:, guardian:, **)
+      return [] if !SiteSetting.chat_allow_uploads
+      guardian.user.uploads.where(id: contract.upload_ids)
+    end
+
+    def instantiate_message(channel:, guardian:, contract:, uploads:, thread:, reply:, **)
+      channel.chat_messages.new(
+        user: guardian.user,
+        last_editor: guardian.user,
+        in_reply_to: reply,
+        message: contract.message,
+        uploads: uploads,
+        thread: thread,
+      )
+    end
+
+    def save_message(message:, **)
       message.cook
       message.save!
       message.create_mentions
