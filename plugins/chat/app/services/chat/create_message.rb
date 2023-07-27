@@ -17,15 +17,17 @@ module Chat
     policy :ensure_thread_matches_parent
     model :uploads, optional: true
     model :message, :instantiate_message
-    step :save_message
-    step :create_webhook_event
-    step :create_thread
-    step :delete_drafts
-    step :post_process_thread
-    step :update_channel_last_message
+    transaction do
+      step :save_message
+      step :post_process_thread
+      step :create_webhook_event
+      step :delete_drafts
+      step :update_channel_last_message
+      step :update_membership_last_read
+      step :process_direct_message_channel
+    end
+    step :publish_new_thread
     step :publish_new_message
-    step :update_membership_last_read
-    step :process_direct_message_channel
     step :publish_user_tracking_state
 
     class Contract
@@ -112,51 +114,6 @@ module Chat
       message.create_mentions
     end
 
-    def create_webhook_event(contract:, message:, **)
-      return if contract.incoming_chat_webhook.blank?
-      message.create_chat_webhook_event(incoming_chat_webhook: contract.incoming_chat_webhook)
-    end
-
-    def create_thread(reply:, contract:, channel:, thread:, **)
-      return if reply.blank?
-      return if contract.thread_id.present? && contract.staged_thread_id.blank?
-
-      # NOTE: We intentionally do not try to correct thread IDs within the chain
-      # if they are incorrect, and only set the thread ID of messages where the
-      # thread ID is NULL. In future we may want some sync/background job to correct
-      # any inconsistencies.
-      DB.exec(<<~SQL)
-        WITH RECURSIVE thread_updater AS (
-          SELECT cm.id, cm.in_reply_to_id
-          FROM chat_messages cm
-          WHERE cm.in_reply_to_id IS NULL AND cm.id = #{thread.original_message.id}
-
-          UNION ALL
-
-          SELECT cm.id, cm.in_reply_to_id
-          FROM chat_messages cm
-          JOIN thread_updater ON cm.in_reply_to_id = thread_updater.id
-        )
-        UPDATE chat_messages
-        SET thread_id = #{thread.id}
-        FROM thread_updater
-        WHERE thread_id IS NULL AND chat_messages.id = thread_updater.id
-      SQL
-
-      if channel.threading_enabled?
-        Chat::Publisher.publish_thread_created!(
-          channel,
-          reply,
-          thread.id,
-          contract.staged_thread_id,
-        )
-      end
-    end
-
-    def delete_drafts(channel:, guardian:, **)
-      Chat::Draft.where(user: guardian.user, chat_channel: channel).destroy_all
-    end
-
     def post_process_thread(thread:, message:, guardian:, **)
       return if thread.blank?
 
@@ -166,9 +123,36 @@ module Chat
       thread.add(thread.original_message_user) if thread.original_message_user != guardian.user
     end
 
+    def create_webhook_event(contract:, message:, **)
+      return if contract.incoming_chat_webhook.blank?
+      message.create_chat_webhook_event(incoming_chat_webhook: contract.incoming_chat_webhook)
+    end
+
+    def delete_drafts(channel:, guardian:, **)
+      Chat::Draft.where(user: guardian.user, chat_channel: channel).destroy_all
+    end
+
     def update_channel_last_message(channel:, message:, **)
       return if message.thread_reply?
       channel.update!(last_message: message)
+    end
+
+    def update_membership_last_read(channel_membership:, message:, **)
+      return if message.thread
+      channel_membership.update!(last_read_message: message)
+    end
+
+    def process_direct_message_channel(channel_membership:, **)
+      Chat::Action::PublishAndFollowDirectMessageChannel.call(
+        channel_membership: channel_membership,
+      )
+    end
+
+    def publish_new_thread(reply:, contract:, channel:, thread:, **)
+      return if reply.blank?
+      return if contract.thread_id.present? && contract.staged_thread_id.blank?
+      return unless channel.threading_enabled?
+      Chat::Publisher.publish_thread_created!(channel, reply, thread.id, contract.staged_thread_id)
     end
 
     def publish_new_message(channel:, message:, contract:, guardian:, **)
@@ -181,17 +165,6 @@ module Chat
       Jobs.enqueue(Jobs::Chat::ProcessMessage, { chat_message_id: message.id })
       Chat::Notifier.notify_new(chat_message: message, timestamp: message.created_at)
       DiscourseEvent.trigger(:chat_message_created, message, channel, guardian.user)
-    end
-
-    def update_membership_last_read(channel_membership:, message:, **)
-      return if message.thread_id
-      channel_membership.update!(last_read_message: message)
-    end
-
-    def process_direct_message_channel(channel_membership:, **)
-      Chat::Action::PublishAndFollowDirectMessageChannel.call(
-        channel_membership: channel_membership,
-      )
     end
 
     def publish_user_tracking_state(message:, channel:, channel_membership:, guardian:, **)

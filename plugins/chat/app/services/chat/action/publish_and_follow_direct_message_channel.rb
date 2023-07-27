@@ -19,11 +19,11 @@ module Chat
         return unless chat_channel.direct_message_channel?
         return if users_allowing_communication.none?
 
-        Chat::Publisher.publish_new_channel(chat_channel, users_allowing_communication)
         chat_channel
           .user_chat_channel_memberships
           .where(user: users_allowing_communication)
           .update_all(following: true)
+        Chat::Publisher.publish_new_channel(chat_channel, users_allowing_communication)
       end
 
       private

@@ -155,12 +155,8 @@ RSpec.describe Chat::CreateMessage do
 
                 context "when replying to another message" do
                   fab!(:reply_to) { Fabricate(:chat_message, chat_channel: channel) }
-                  fab!(:another_message) { Fabricate(:chat_message, chat_channel: channel) }
 
-                  before do
-                    another_message.update!(in_reply_to: reply_to)
-                    params[:in_reply_to_id] = reply_to.id
-                  end
+                  before { params[:in_reply_to_id] = reply_to.id }
 
                   context "when message is not threaded" do
                     fab!(:thread) do
@@ -200,10 +196,6 @@ RSpec.describe Chat::CreateMessage do
                         )
                         result
                       end
-                    end
-
-                    it "fixes missing threads in the chain of messages" do
-                      expect { result }.to change { another_message.reload.thread }.to thread
                     end
                   end
                 end
