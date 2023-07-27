@@ -12,7 +12,6 @@ module Chat
     model :channel_membership
     model :reply, optional: true
     policy :ensure_reply_consistency
-    model :original_message, optional: true
     model :thread, optional: true
     policy :ensure_valid_thread_for_channel
     policy :ensure_thread_matches_parent
@@ -67,27 +66,28 @@ module Chat
 
     def ensure_reply_consistency(channel:, contract:, reply:, **)
       return true if contract.in_reply_to_id.blank?
-      reply.chat_channel == channel
+      reply&.chat_channel == channel
     end
 
-    def fetch_original_message(reply:, **)
-      return if reply.blank?
-      reply.thread&.original_message || reply
-    end
-
-    def fetch_thread(contract:, **)
-      Chat::Thread.find_by(id: contract.thread_id)
+    def fetch_thread(contract:, reply:, channel:, **)
+      return Chat::Thread.find_by(id: contract.thread_id) if contract.thread_id.present?
+      return unless reply
+      reply.thread ||
+        reply.build_thread(
+          original_message: reply,
+          original_message_user: reply.user,
+          channel: channel,
+        )
     end
 
     def ensure_valid_thread_for_channel(thread:, contract:, channel:, **)
-      return true if thread.blank?
-      thread.channel == channel
+      return true if contract.thread_id.blank?
+      thread&.channel == channel
     end
 
-    def ensure_thread_matches_parent(thread:, contract:, original_message:, reply:, **)
-      return true if thread.blank?
-      return true if !reply.try(:thread) && !original_message.try(:thread)
-      reply.thread == thread && original_message.thread && original_message.thread == thread
+    def ensure_thread_matches_parent(thread:, reply:, **)
+      return true unless thread && reply
+      reply.thread == thread
     end
 
     def fetch_uploads(contract:, guardian:, **)
@@ -117,19 +117,9 @@ module Chat
       message.create_chat_webhook_event(incoming_chat_webhook: contract.incoming_chat_webhook)
     end
 
-    def create_thread(message:, contract:, original_message:, **)
-      return if message.in_reply_to.blank?
-      return if message.in_thread? && contract.staged_thread_id.blank?
-      message.in_reply_to.thread =
-        original_message.thread ||
-          Chat::Thread.create!(
-            original_message: message.in_reply_to,
-            original_message_user: message.in_reply_to.user,
-            channel: message.chat_channel,
-          )
-      message.in_reply_to.save
-      message.thread = message.in_reply_to.thread
-      message.save
+    def create_thread(reply:, contract:, channel:, thread:, **)
+      return if reply.blank?
+      return if contract.thread_id.present? && contract.staged_thread_id.blank?
 
       # NOTE: We intentionally do not try to correct thread IDs within the chain
       # if they are incorrect, and only set the thread ID of messages where the
@@ -139,7 +129,7 @@ module Chat
         WITH RECURSIVE thread_updater AS (
           SELECT cm.id, cm.in_reply_to_id
           FROM chat_messages cm
-          WHERE cm.in_reply_to_id IS NULL AND cm.id = #{original_message.id}
+          WHERE cm.in_reply_to_id IS NULL AND cm.id = #{thread.original_message.id}
 
           UNION ALL
 
@@ -148,16 +138,16 @@ module Chat
           JOIN thread_updater ON cm.in_reply_to_id = thread_updater.id
         )
         UPDATE chat_messages
-        SET thread_id = #{message.thread.id}
+        SET thread_id = #{thread.id}
         FROM thread_updater
         WHERE thread_id IS NULL AND chat_messages.id = thread_updater.id
       SQL
 
-      if message.chat_channel.threading_enabled?
+      if channel.threading_enabled?
         Chat::Publisher.publish_thread_created!(
-          message.chat_channel,
-          message.in_reply_to,
-          message.in_reply_to.thread.id,
+          channel,
+          reply,
+          thread.id,
           contract.staged_thread_id,
         )
       end
@@ -168,7 +158,6 @@ module Chat
     end
 
     def post_process_thread(thread:, message:, guardian:, **)
-      thread ||= message.thread
       return if thread.blank?
 
       thread.update!(last_message: message)
