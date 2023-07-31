@@ -19,15 +19,15 @@ module Chat
     model :message, :instantiate_message
     transaction do
       step :save_message
+      step :delete_drafts
       step :post_process_thread
       step :create_webhook_event
-      step :delete_drafts
       step :update_channel_last_message
       step :update_membership_last_read
       step :process_direct_message_channel
     end
     step :publish_new_thread
-    step :publish_new_message
+    step :publish_new_message_events
     step :publish_user_tracking_state
 
     class Contract
@@ -114,22 +114,17 @@ module Chat
       message.create_mentions
     end
 
-    def post_process_thread(thread:, message:, guardian:, **)
-      return if thread.blank?
+    def delete_drafts(channel:, guardian:, **)
+      Chat::Draft.where(user: guardian.user, chat_channel: channel).destroy_all
+    end
 
-      thread.update!(last_message: message)
-      thread.increment_replies_count_cache
-      thread.add(guardian.user).update!(last_read_message: message)
-      thread.add(thread.original_message_user) if thread.original_message_user != guardian.user
+    def post_process_thread(message:, **)
+      Chat::Action::PostProcessThreadedMessage.call(message: message)
     end
 
     def create_webhook_event(contract:, message:, **)
       return if contract.incoming_chat_webhook.blank?
       message.create_chat_webhook_event(incoming_chat_webhook: contract.incoming_chat_webhook)
-    end
-
-    def delete_drafts(channel:, guardian:, **)
-      Chat::Draft.where(user: guardian.user, chat_channel: channel).destroy_all
     end
 
     def update_channel_last_message(channel:, message:, **)
@@ -149,13 +144,12 @@ module Chat
     end
 
     def publish_new_thread(reply:, contract:, channel:, thread:, **)
-      return if reply.blank?
-      return if contract.thread_id.present? && contract.staged_thread_id.blank?
+      return unless thread && contract.thread_id.blank?
       return unless channel.threading_enabled?
       Chat::Publisher.publish_thread_created!(channel, reply, thread.id, contract.staged_thread_id)
     end
 
-    def publish_new_message(channel:, message:, contract:, guardian:, **)
+    def publish_new_message_events(channel:, message:, contract:, guardian:, **)
       Chat::Publisher.publish_new!(
         channel,
         message,

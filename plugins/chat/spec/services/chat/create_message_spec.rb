@@ -184,17 +184,19 @@ RSpec.describe Chat::CreateMessage do
                           thread: new_thread,
                         )
                       end
-                    end
 
-                    context "when threading is enabled in channel" do
-                      it "publishes the assigned thread" do
-                        Chat::Publisher.expects(:publish_thread_created!).with(
-                          channel,
-                          reply_to,
-                          thread.id,
-                          nil,
-                        )
-                        result
+                      context "when threading is enabled in channel" do
+                        before { channel.update!(threading_enabled: true) }
+
+                        it "publishes the new thread" do
+                          Chat::Publisher.expects(:publish_thread_created!).with(
+                            channel,
+                            reply_to,
+                            instance_of(Integer),
+                            nil,
+                          )
+                          result
+                        end
                       end
                     end
                   end
