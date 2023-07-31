@@ -171,7 +171,13 @@ module Chat
       Chat::Publisher.publish_user_tracking_state!(
         guardian.user,
         channel,
-        message.in_thread? ? channel_membership.last_read_message : message,
+        (
+          if message.in_thread? && channel_membership.last_read_message
+            channel_membership.last_read_message
+          else
+            message
+          end
+        ),
       )
     end
   end
