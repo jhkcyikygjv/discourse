@@ -118,8 +118,13 @@ module Chat
       Chat::Draft.where(user: guardian.user, chat_channel: channel).destroy_all
     end
 
-    def post_process_thread(message:, **)
-      Chat::Action::PostProcessThreadedMessage.call(message: message)
+    def post_process_thread(thread:, message:, guardian:, **)
+      return unless thread
+
+      thread.update!(last_message: message)
+      thread.increment_replies_count_cache
+      thread.add(guardian.user).update!(last_read_message: message)
+      thread.add(thread.original_message_user) if thread.original_message_user != guardian.user
     end
 
     def create_webhook_event(contract:, message:, **)
@@ -128,12 +133,12 @@ module Chat
     end
 
     def update_channel_last_message(channel:, message:, **)
-      return if message.thread_reply?
+      return if message.in_thread?
       channel.update!(last_message: message)
     end
 
     def update_membership_last_read(channel_membership:, message:, **)
-      return if message.thread
+      return if message.in_thread?
       channel_membership.update!(last_read_message: message)
     end
 
