@@ -117,16 +117,18 @@ RSpec.describe Chat::CreateMessage do
       let(:thread_membership) { Chat::UserChatThreadMembership.find_by(user: user) }
       let(:original_user) { thread.original_message_user }
 
-      before { Chat::UserChatThreadMembership.where(user: original_user).delete_all }
+      before do
+        Chat::UserChatThreadMembership.where(user: original_user).delete_all
+        Discourse.redis.flushdb
+      end
 
       it "increments the replies count" do
-        expect { result }.to change { thread.reload.replies_count_cache }.by(1)
+        result
+        expect(thread.replies_count_cache).to eq(1)
       end
 
       it "adds current user to the thread" do
-        expect { result }.to change {
-          Chat::UserChatThreadMembership.where(thread: thread, user: user).count
-        }.by(1)
+        expect { result }.to change { Chat::UserChatThreadMembership.where(user: user).count }.by(1)
       end
 
       it "sets last_read_message on the thread membership" do
@@ -136,7 +138,7 @@ RSpec.describe Chat::CreateMessage do
 
       it "adds original message user to the thread" do
         expect { result }.to change {
-          Chat::UserChatThreadMembership.where(thread: thread, user: original_user).count
+          Chat::UserChatThreadMembership.where(user: original_user).count
         }.by(1)
       end
 
@@ -235,16 +237,18 @@ RSpec.describe Chat::CreateMessage do
                     end
 
                     context "when reply is not in a thread" do
-                      let(:new_thread) { Chat::Thread.last }
+                      let(:thread) { Chat::Thread.last }
 
                       it_behaves_like "creating a new message"
-                      it_behaves_like "a message in a thread"
+                      it_behaves_like "a message in a thread" do
+                        let(:original_user) { reply_to.user }
+                      end
 
                       it "creates a new thread" do
                         expect { result }.to change { Chat::Thread.count }.by(1)
                         expect(message).to have_attributes(
-                          in_reply_to: an_object_having_attributes(thread: new_thread),
-                          thread: new_thread,
+                          in_reply_to: an_object_having_attributes(thread: thread),
+                          thread: thread,
                         )
                       end
 
