@@ -149,8 +149,8 @@ module Chat
     end
 
     def publish_new_thread(reply:, contract:, channel:, thread:, **)
-      return unless thread && contract.thread_id.blank?
       return unless channel.threading_enabled?
+      return unless reply&.thread_id_previously_changed?(from: nil)
       Chat::Publisher.publish_thread_created!(channel, reply, thread.id, contract.staged_thread_id)
     end
 
@@ -167,17 +167,9 @@ module Chat
     end
 
     def publish_user_tracking_state(message:, channel:, channel_membership:, guardian:, **)
-      Chat::Publisher.publish_user_tracking_state!(
-        guardian.user,
-        channel,
-        (
-          if message.in_thread? && channel_membership.last_read_message
-            channel_membership.last_read_message
-          else
-            message
-          end
-        ),
-      )
+      message_to_publish = message
+      message_to_publish = channel_membership.last_read_message || message if message.in_thread?
+      Chat::Publisher.publish_user_tracking_state!(guardian.user, channel, message_to_publish)
     end
   end
 end

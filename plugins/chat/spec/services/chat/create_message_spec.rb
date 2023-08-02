@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Chat::CreateMessage do
-  describe Chat::CreateMessage::Contract, type: :model do
+  describe described_class::Contract, type: :model do
     subject(:contract) { described_class.new(upload_ids: upload_ids) }
 
     let(:upload_ids) { nil }
@@ -119,7 +119,7 @@ RSpec.describe Chat::CreateMessage do
 
       before do
         Chat::UserChatThreadMembership.where(user: original_user).delete_all
-        Discourse.redis.flushdb
+        Discourse.redis.flushdb # for replies count cache
       end
 
       it "increments the replies count" do
@@ -154,6 +154,10 @@ RSpec.describe Chat::CreateMessage do
       it "updates thread last_message attribute" do
         result
         expect(thread.reload.last_message).to eq message
+      end
+
+      it "doesn't update last_read_message attribute on the channel membership" do
+        expect { result }.not_to change { membership.reload.last_read_message }
       end
     end
 
@@ -234,6 +238,11 @@ RSpec.describe Chat::CreateMessage do
                           thread: thread,
                         )
                       end
+
+                      it "does not publish the existing thread" do
+                        Chat::Publisher.expects(:publish_thread_created!).never
+                        result
+                      end
                     end
 
                     context "when reply is not in a thread" do
@@ -253,8 +262,6 @@ RSpec.describe Chat::CreateMessage do
                       end
 
                       context "when threading is enabled in channel" do
-                        before { channel.update!(threading_enabled: true) }
-
                         it "publishes the new thread" do
                           Chat::Publisher.expects(:publish_thread_created!).with(
                             channel,
@@ -308,12 +315,22 @@ RSpec.describe Chat::CreateMessage do
 
                         it_behaves_like "creating a new message"
                         it_behaves_like "a message in a thread"
+
+                        it "does not publish the thread" do
+                          Chat::Publisher.expects(:publish_thread_created!).never
+                          result
+                        end
                       end
                     end
 
                     context "when not replying to an existing message" do
                       it_behaves_like "creating a new message"
                       it_behaves_like "a message in a thread"
+
+                      it "does not publish the thread" do
+                        Chat::Publisher.expects(:publish_thread_created!).never
+                        result
+                      end
                     end
                   end
                 end
