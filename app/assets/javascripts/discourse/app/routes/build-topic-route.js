@@ -1,4 +1,5 @@
 import {
+  changeNewListScope,
   changeSort,
   queryParams,
   resetParams,
@@ -165,6 +166,11 @@ export default function (filter, extras) {
       @action
       changeSort(sortBy) {
         changeSort.call(this, sortBy);
+      },
+
+      @action
+      changeNewListScope(newScope) {
+        changeNewListScope.call(this, newScope);
       },
 
       @action

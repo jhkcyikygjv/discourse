@@ -1,5 +1,6 @@
 import { Promise, all } from "rsvp";
 import {
+  changeNewListScope,
   changeSort,
   queryParams,
   resetParams,
@@ -247,6 +248,11 @@ export default (filterArg, params) => {
     @action
     changeSort(sortBy) {
       changeSort.call(this, sortBy);
+    },
+
+    @action
+    changeNewListScope(newScope) {
+      changeNewListScope.call(this, newScope);
     },
 
     @action

@@ -1,4 +1,4 @@
-import { alias, empty, equal, gt, not, readOnly } from "@ember/object/computed";
+import { alias, empty, equal, gt, readOnly } from "@ember/object/computed";
 import BulkTopicSelection from "discourse/mixins/bulk-topic-selection";
 import DismissTopics from "discourse/mixins/dismiss-topics";
 import DiscoveryController from "discourse/controllers/discovery";
@@ -21,7 +21,6 @@ const controllerOpts = {
   canCreateTopicOnCategory: null,
 
   canStar: alias("currentUser.id"),
-  showTopicPostBadges: not("new"),
   redirectedReason: alias("currentUser.user_option.redirected_to_top.reason"),
 
   expandGloballyPinned: false,
@@ -31,6 +30,7 @@ const controllerOpts = {
   ascending: readOnly("model.params.ascending"),
 
   selected: null,
+  newListScope: alias("model.params.s"),
 
   // Remove these actions which are defined in `DiscoveryController`
   // We want them to bubble in DiscoveryTopicsController
@@ -135,7 +135,41 @@ const controllerOpts = {
 
   @discourseComputed("model.filter")
   new(filter) {
-    return filter?.endsWith("new") && !this.currentUser?.new_new_view_enabled;
+    return filter?.endsWith("new");
+  },
+
+  @discourseComputed("new")
+  showTopicsAndRepliesToggle(isNew) {
+    return isNew && this.currentUser?.new_new_view_enabled;
+  },
+
+  @discourseComputed("topicTrackingState.messageCount")
+  newRepliesCount() {
+    if (this.currentUser?.new_new_view_enabled) {
+      return this.topicTrackingState.countUnread({
+        categoryId: this.category?.id,
+        noSubcategories: this.noSubcategories,
+      });
+    } else {
+      return 0;
+    }
+  },
+
+  @discourseComputed("topicTrackingState.messageCount")
+  newTopicsCount() {
+    if (this.currentUser?.new_new_view_enabled) {
+      return this.topicTrackingState.countNew({
+        categoryId: this.category?.id,
+        noSubcategories: this.noSubcategories,
+      });
+    } else {
+      return 0;
+    }
+  },
+
+  @discourseComputed("new")
+  showTopicPostBadges(isNew) {
+    return !isNew || this.currentUser?.new_new_view_enabled;
   },
 
   @discourseComputed("allLoaded", "model.topics.length")

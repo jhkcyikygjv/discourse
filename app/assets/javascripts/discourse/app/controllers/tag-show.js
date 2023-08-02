@@ -7,7 +7,7 @@ import FilterModeMixin from "discourse/mixins/filter-mode";
 import I18n from "I18n";
 import NavItem from "discourse/models/nav-item";
 import Topic from "discourse/models/topic";
-import { readOnly } from "@ember/object/computed";
+import { alias, readOnly } from "@ember/object/computed";
 import { endWith } from "discourse/lib/computed";
 import { action } from "@ember/object";
 import { inject as service } from "@ember/service";
@@ -32,6 +32,7 @@ export default DiscoverySortableController.extend(
     canCreateTopic: false,
     showInfo: false,
     top: endWith("list.filter", "top"),
+    newListScope: alias("s"),
 
     @discourseComputed(
       "canCreateTopic",
@@ -91,9 +92,45 @@ export default DiscoverySortableController.extend(
       return this._isFilterPage(filter, "unread") && topicsLength > 0;
     },
 
-    @discourseComputed("list.filter", "list.topics.length")
-    showResetNew(filter, topicsLength) {
-      return this._isFilterPage(filter, "new") && topicsLength > 0;
+    @discourseComputed("list.filter")
+    new(filter) {
+      return this._isFilterPage(filter, "new");
+    },
+
+    @discourseComputed("new")
+    showTopicsAndRepliesToggle(isNew) {
+      return isNew && this.currentUser?.new_new_view_enabled;
+    },
+
+    @discourseComputed("topicTrackingState.messageCount")
+    newRepliesCount() {
+      if (this.currentUser?.new_new_view_enabled) {
+        return this.topicTrackingState.countUnread({
+          categoryId: this.category?.id,
+          noSubcategories: this.noSubcategories,
+          tagId: this.tag?.id,
+        });
+      } else {
+        return 0;
+      }
+    },
+
+    @discourseComputed("topicTrackingState.messageCount")
+    newTopicsCount() {
+      if (this.currentUser?.new_new_view_enabled) {
+        return this.topicTrackingState.countNew({
+          categoryId: this.category?.id,
+          noSubcategories: this.noSubcategories,
+          tagId: this.tag?.id,
+        });
+      } else {
+        return 0;
+      }
+    },
+
+    @discourseComputed("new", "list.topics.length")
+    showResetNew(isNew, topicsLength) {
+      return isNew && topicsLength > 0;
     },
 
     callResetNew(dismissPosts = false, dismissTopics = false, untrack = false) {
@@ -125,6 +162,11 @@ export default DiscoverySortableController.extend(
       this.list.loadBefore(tracker.newIncoming, true);
       tracker.resetTracking();
       return false;
+    },
+
+    @action
+    changeNewListScope(newScope) {
+      this.set("newListScope", newScope);
     },
 
     @action
