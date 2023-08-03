@@ -186,10 +186,11 @@ module Chat
     end
 
     def add_moved_placeholder(destination_channel, first_moved_message)
+      @source_channel.add(Discourse.system_user)
       Chat::CreateMessage.call(
-        chat_channel: @source_channel,
+        chat_channel_id: @source_channel.id,
         guardian: Guardian.new(Discourse.system_user),
-        content:
+        message:
           I18n.t(
             "chat.channel.messages_moved",
             count: @source_message_ids.length,

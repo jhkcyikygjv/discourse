@@ -31,6 +31,8 @@ describe Jobs::Chat::ProcessMessage do
   context "when is_dirty args is not true" do
     fab!(:chat_message) { Fabricate(:chat_message, message: "a very lovely cat") }
 
+    before { chat_message.tap(&:cook).save! }
+
     it "doesn’t publish the update" do
       Chat::Publisher.expects(:publish_processed!).never
       described_class.new.execute(chat_message_id: chat_message.id)

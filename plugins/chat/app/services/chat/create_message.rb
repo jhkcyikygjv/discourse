@@ -124,7 +124,7 @@ module Chat
       thread.update!(last_message: message)
       thread.increment_replies_count_cache
       thread.add(guardian.user).update!(last_read_message: message)
-      thread.add(thread.original_message_user) if thread.original_message_user != guardian.user
+      thread.add(thread.original_message_user)
     end
 
     def create_webhook_event(contract:, message:, **)

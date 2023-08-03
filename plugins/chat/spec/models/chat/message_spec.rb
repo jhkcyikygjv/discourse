@@ -171,6 +171,7 @@ describe Chat::Message do
 
     it "supports link markdown rule" do
       chat_message = Fabricate(:chat_message, message: "[test link](https://www.example.com)")
+      chat_message.cook
 
       expect(chat_message.cooked).to eq(
         "<p><a href=\"https://www.example.com\" rel=\"noopener nofollow ugc\">test link</a></p>",

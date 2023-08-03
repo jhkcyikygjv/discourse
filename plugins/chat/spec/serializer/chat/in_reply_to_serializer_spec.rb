@@ -27,6 +27,8 @@ RSpec.describe Chat::InReplyToSerializer do
     let(:watched_word) { Fabricate(:watched_word, action: WatchedWord.actions[:censor]) }
     let(:message) { Fabricate(:chat_message, message: "ok #{watched_word.word}") }
 
+    before { message.cook }
+
     it "censors words" do
       expect(serializer.as_json[:excerpt]).to eq("ok ■■■■■")
     end
