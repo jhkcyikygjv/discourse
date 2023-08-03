@@ -153,10 +153,10 @@ describe "Single thread in side panel", type: :system do
       it "does not mark the channel unread if another user sends a message in the thread" do
         other_user = Fabricate(:user)
         chat_system_user_bootstrap(user: other_user, channel: channel)
-        Chat::MessageCreator.create(
-          chat_channel: channel,
-          user: other_user,
-          content: "Hello world!",
+        Chat::CreateMessage.call(
+          chat_channel_id: channel.id,
+          guardian: Guardian.new(other_user),
+          message: "Hello world!",
           thread_id: thread.id,
         )
         sign_in(current_user)

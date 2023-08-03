@@ -71,11 +71,12 @@ RSpec.describe "Archive channel", type: :system do
             Jobs.run_immediately!
 
             other_user = Fabricate(:user)
+            Group.refresh_automatic_group!(:trust_level_1)
             channel_1.add(other_user)
-            Chat::MessageCreator.create(
-              chat_channel: channel_1,
-              user: other_user,
-              content: "this is fine @#{current_user.username}",
+            Chat::CreateMessage.call(
+              chat_channel_id: channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @#{current_user.username}",
             )
 
             visit("/")

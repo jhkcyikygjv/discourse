@@ -19,7 +19,7 @@ RSpec.describe "Reply to message - channel - drawer", type: :system do
 
   before do
     chat_system_bootstrap
-    channel_1.update!(threading_enabled: true)
+    channel_1.update!(threading_enabled: true, last_message: original_message)
     channel_1.add(current_user)
     sign_in(current_user)
   end
@@ -44,16 +44,19 @@ RSpec.describe "Reply to message - channel - drawer", type: :system do
   end
 
   context "when the message has an existing thread" do
-    fab!(:message_1) do
-      creator =
-        Chat::MessageCreator.new(
-          chat_channel: channel_1,
-          in_reply_to_id: original_message.id,
-          user: Fabricate(:user),
-          content: Faker::Lorem.paragraph,
-        )
-      creator.create
-      creator.chat_message
+    let(:user) { Fabricate(:user, group_ids: Group::AUTO_GROUPS[:trust_level_1]) }
+    let(:message_1) do
+      Chat::CreateMessage.call(
+        chat_channel_id: channel_1.id,
+        in_reply_to_id: original_message.id,
+        guardian: Guardian.new(user),
+        message: Faker::Lorem.paragraph,
+      ).message
+    end
+
+    before do
+      channel_1.add(user)
+      message_1 # can't use `let!`
     end
 
     it "replies to the existing thread" do

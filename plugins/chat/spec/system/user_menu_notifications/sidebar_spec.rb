@@ -36,6 +36,8 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
   context "when mentioning" do
     fab!(:other_user) { Fabricate(:user) }
 
+    before { Group.refresh_automatic_group!(:trust_level_11) }
+
     context "when dm channel" do
       fab!(:dm_channel_1) { Fabricate(:direct_message_channel, users: [current_user, other_user]) }
 
@@ -44,11 +46,11 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
           Jobs.run_immediately!
 
           message =
-            Chat::MessageCreator.create(
-              chat_channel: dm_channel_1,
-              user: other_user,
-              content: "this is fine @#{current_user.username}",
-            ).chat_message
+            Chat::CreateMessage.call(
+              chat_channel_id: dm_channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @#{current_user.username}",
+            ).message
 
           visit("/")
 
@@ -81,11 +83,11 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
 
         xit "shows a group mention notification" do
           message =
-            Chat::MessageCreator.create(
-              chat_channel: channel_1,
-              user: other_user,
-              content: "this is fine @#{group.name}",
-            ).chat_message
+            Chat::CreateMessage.call(
+              chat_channel_id: channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @#{group.name}",
+            ).message
 
           visit("/")
 
@@ -110,11 +112,11 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
           Jobs.run_immediately!
 
           message =
-            Chat::MessageCreator.create(
-              chat_channel: channel_1,
-              user: other_user,
-              content: "this is fine @#{current_user.username}",
-            ).chat_message
+            Chat::CreateMessage.call(
+              chat_channel_id: channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @#{current_user.username}",
+            ).message
 
           visit("/")
 
@@ -134,12 +136,12 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
           Jobs.run_immediately!
 
           message =
-            Chat::MessageCreator.create(
-              chat_channel: channel_1,
-              user: other_user,
-              content: "this is fine @#{current_user.username}",
+            Chat::CreateMessage.call(
+              chat_channel_id: channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @#{current_user.username}",
               thread_id: Fabricate(:chat_thread, channel: channel_1).id,
-            ).chat_message
+            ).message
 
           visit("/")
 
@@ -159,11 +161,11 @@ RSpec.describe "User menu notifications | sidebar", type: :system do
       context "when @all" do
         xit "shows a mention notification" do
           message =
-            Chat::MessageCreator.create(
-              chat_channel: channel_1,
-              user: other_user,
-              content: "this is fine @all",
-            ).chat_message
+            Chat::CreateMessage.call(
+              chat_channel_id: channel_1.id,
+              guardian: Guardian.new(other_user),
+              message: "this is fine @all",
+            ).message
 
           visit("/")
 
