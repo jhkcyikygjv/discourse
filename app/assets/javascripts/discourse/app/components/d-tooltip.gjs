@@ -3,6 +3,8 @@ import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { inject as service } from "@ember/service";
 import { action } from "@ember/object";
 import { iconHTML } from "discourse-common/lib/icon-library";
+import discourseDebounce from "discourse-common/lib/debounce";
+import { bind } from "discourse-common/utils/decorators";
 import tippy from "tippy.js";
 
 export default class DiscourseTooltip extends Component {
@@ -15,9 +17,29 @@ export default class DiscourseTooltip extends Component {
 
   #tippyInstance;
 
+  constructor() {
+    super(...arguments);
+    if (this.capabilities.touch) {
+      window.addEventListener("scroll", this.debouncedOnScroll);
+    }
+  }
+
   willDestroy() {
     super.willDestroy(...arguments);
     this.#tippyInstance.destroy();
+    if (this.capabilities.touch) {
+      window.removeEventListener("scroll", this.debouncedOnScroll);
+    }
+  }
+
+  @bind
+  debouncedOnScroll() {
+    discourseDebounce(this, this.#onScroll, 10);
+
+  }
+
+  #onScroll() {
+    this.#tippyInstance.hide();
   }
 
   stopPropagation(instance, event) {
