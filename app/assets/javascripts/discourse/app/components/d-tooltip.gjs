@@ -34,12 +34,7 @@ export default class DiscourseTooltip extends Component {
 
   @bind
   debouncedOnScroll() {
-    discourseDebounce(this, this.#onScroll, 10);
-
-  }
-
-  #onScroll() {
-    this.#tippyInstance.hide();
+    discourseDebounce(() => this.#tippyInstance.hide(), 10);
   }
 
   stopPropagation(instance, event) {
